@@ -76,7 +76,7 @@ void C620CAN::readMotorStatus()
     CAN_RxHeaderTypeDef rx_header;
     uint8_t rx_data[8];
 
-    if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, rx_data) == HAL_OK)
+    if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, rx_data) == HAL_OK)
     {
         if(rx_header.StdId < 0x201 || rx_header.StdId > 0x208) return;
         const uint8_t idx = rx_header.StdId - 0x201;
