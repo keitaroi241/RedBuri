@@ -1,0 +1,7 @@
+float32 joint_1_deg
+float32 joint_2_deg
+float32 joint_3_deg
+float32 joint_4_deg
+float32 joint_5_deg
+float32 joint_6_deg
+float32 gripper_deg
