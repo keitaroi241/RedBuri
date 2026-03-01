@@ -87,20 +87,38 @@ private:
     return false;
   }
 
+  bool writeLed(const std::string &path, int value)
+  {
+    std::ofstream file(path);
+
+    if(!file.is_open())
+    {
+      return false;
+    }
+
+    file << value;
+    return !file.fail();
+  }
+
   void setLedColor(int red_value, int green_value, int blue_value)
   {
     red_value = std::clamp(red_value, 0, led_max_brightness_);
     green_value = std::clamp(green_value, 0, led_max_brightness_);
     blue_value = std::clamp(blue_value, 0, led_max_brightness_);
 
-    std::ofstream red_file(led_red_path_);
-    std::ofstream green_file(led_green_path_);
-    std::ofstream blue_file(led_blue_path_);
+    bool ok =
+      writeLed(led_red_path_, red_value) &&
+      writeLed(led_green_path_, green_value) &&
+      writeLed(led_blue_path_, blue_value);
 
-    red_file << red_value;
-    green_file << green_value;
-    blue_file << blue_value;
+    if(!ok && detectLedPaths())
+    {
+      writeLed(led_red_path_, red_value);
+      writeLed(led_green_path_, green_value);
+      writeLed(led_blue_path_, blue_value);
+    }
   }
+
 
   void joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
   {
