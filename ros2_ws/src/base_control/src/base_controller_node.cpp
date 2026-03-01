@@ -3,10 +3,10 @@
 #include "redburi_msgs/msg/base_command.hpp"
 #include "redburi_msgs/msg/base_motor.hpp"
 
-class BaseCmdToMotor : public rclcpp::Node
+class BaseControllerNode : public rclcpp::Node
 {
 public:
-  BaseCmdToMotor() : Node("base_cmd_to_motor")
+  BaseControllerNode() : Node("base_controller_node")
   {
     wheelbase_m_ = declare_parameter<double>("wheelbase_m");
     tread_m_ = declare_parameter<double>("tread_m");
@@ -84,7 +84,7 @@ private:
 int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<BaseCmdToMotor>());
+  rclcpp::spin(std::make_shared<BaseControllerNode>());
   rclcpp::shutdown();
   return 0;
 }

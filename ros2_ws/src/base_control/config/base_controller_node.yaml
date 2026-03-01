@@ -1,4 +1,4 @@
-base_cmd_to_motor:
+base_controller_node:
   ros__parameters:
     wheelbase_m: 0.930535
     tread_m: 0.675026
