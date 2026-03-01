@@ -11,15 +11,15 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(redburi_msgs REQUIRED)
 
-add_executable(joy_to_base_cmd src/joy_to_base_cmd.cpp)
-ament_target_dependencies(joy_to_base_cmd rclcpp sensor_msgs redburi_msgs)
+add_executable(joy_base_node src/joy_base_node.cpp)
+ament_target_dependencies(joy_base_node rclcpp sensor_msgs redburi_msgs)
 
-add_executable(joy_mode_manager src/joy_mode_node.cpp)
-ament_target_dependencies(joy_mode_manager rclcpp sensor_msgs)
+add_executable(joy_mode_node src/joy_mode_node.cpp)
+ament_target_dependencies(joy_mode_node rclcpp sensor_msgs)
 
 install(TARGETS
-  joy_to_base_cmd
-  joy_mode_manager
+  joy_base_node
+  joy_mode_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

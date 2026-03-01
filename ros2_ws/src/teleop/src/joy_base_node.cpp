@@ -5,15 +5,11 @@
 #include "sensor_msgs/msg/joy.hpp"
 #include "redburi_msgs/msg/base_command.hpp"
 
-class JoyToBaseCmd : public rclcpp::Node
+class JoyBaseNode : public rclcpp::Node
 {
 public:
-  JoyToBaseCmd() : Node("joy_to_base_cmd")
+  JoyBaseNode() : Node("joy_base_node")
   {
-    axis_forward_ = declare_parameter<int>("axis_forward");
-    axis_backward_ = declare_parameter<int>("axis_backward");
-    axis_steer_ = declare_parameter<int>("axis_steer");
-    axis_spin_ = declare_parameter<int>("axis_spin");
     forward_input_max_ = declare_parameter<double>("forward_input_max");
     backward_input_max_ = declare_parameter<double>("backward_input_max");
     steer_input_max_ = declare_parameter<double>("steer_input_max");
@@ -24,7 +20,7 @@ public:
     deadzone_spin_ = declare_parameter<double>("deadzone_spin");
 
     joy_sub_ = create_subscription<sensor_msgs::msg::Joy>(
-      "/joy",
+      "/joy_base",
       10,
       [this](sensor_msgs::msg::Joy::SharedPtr msg)
       {
@@ -35,10 +31,10 @@ public:
   }
 
 private:
-  int axis_forward_{};
-  int axis_backward_{};
-  int axis_steer_{};
-  int axis_spin_{};
+  int axis_forward_{5};
+  int axis_backward_{2};
+  int axis_steer_{0};
+  int axis_spin_{3};
   double forward_input_max_{};
   double backward_input_max_{};
   double steer_input_max_{};
@@ -113,7 +109,7 @@ private:
 int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<JoyToBaseCmd>());
+  rclcpp::spin(std::make_shared<JoyBaseNode>());
   rclcpp::shutdown();
   return 0;
 }

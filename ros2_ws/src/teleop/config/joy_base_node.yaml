@@ -1,0 +1,11 @@
+# Controller: DualShock 4
+joy_base_node:
+  ros__parameters:
+    forward_input_max: 0.95
+    backward_input_max: 0.95
+    steer_input_max: 0.95
+    spin_input_max: 0.95
+    deadzone_forward: 0.05
+    deadzone_backward: 0.05
+    deadzone_steer: 0.05
+    deadzone_spin: 0.1
