@@ -1,7 +1,8 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
-#include "geometry_msgs/msg/twist.hpp"
+#include <string>
+#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "std_msgs/msg/float32.hpp"
@@ -20,6 +21,7 @@ public:
     max_linear_x_ = declare_parameter<double>("max_linear_x");
     max_linear_y_ = declare_parameter<double>("max_linear_y");
     max_linear_z_ = declare_parameter<double>("max_linear_z");
+    servo_command_frame_ = declare_parameter<std::string>("servo_command_frame", "base_mount");
 
     joy_sub_ = create_subscription<sensor_msgs::msg::Joy>(
       "/joy_arm_cartesian",
@@ -29,7 +31,8 @@ public:
         joyArmCartesianCallback(msg);
       }
     );
-    twist_pub_ = create_publisher<geometry_msgs::msg::Twist>("/arm_vel", 10);
+    twist_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(
+      "/servo_node/delta_twist_cmds", 10);
     gripper_pub_ = create_publisher<std_msgs::msg::Float32>("/arm_gripper", 10);
   }
 
@@ -48,8 +51,9 @@ private:
   double max_linear_x_{};
   double max_linear_y_{};
   double max_linear_z_{};
+  std::string servo_command_frame_{};
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr gripper_pub_;
 
   double scaleAxis(double input, double input_max, double deadzone, double max_linear) const
@@ -71,23 +75,27 @@ private:
 
   void joyArmCartesianCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
   {
-    geometry_msgs::msg::Twist twist{};
+    geometry_msgs::msg::TwistStamped twist{};
     std_msgs::msg::Float32 gripper{};
     const size_t max_axis_idx = static_cast<size_t>(
       std::max({axis_x_, axis_y_, axis_z_, axis_gripper_open_, axis_gripper_close_}));
 
     if(msg->axes.size() <= max_axis_idx)
     {
+      twist.header.stamp = now();
+      twist.header.frame_id = servo_command_frame_;
       twist_pub_->publish(twist);
       gripper_pub_->publish(gripper);
       return;
     }
 
-    twist.linear.x = -scaleAxis(
+    twist.header.stamp = now();
+    twist.header.frame_id = servo_command_frame_;
+    twist.twist.linear.x = -scaleAxis(
       msg->axes[axis_x_], input_max_x_, deadzone_x_, max_linear_x_);
-    twist.linear.y = scaleAxis(
+    twist.twist.linear.y = scaleAxis(
       msg->axes[axis_y_], input_max_y_, deadzone_y_, max_linear_y_);
-    twist.linear.z = scaleAxis(
+    twist.twist.linear.z = scaleAxis(
       msg->axes[axis_z_], input_max_z_, deadzone_z_, max_linear_z_);
 
     twist_pub_->publish(twist);
