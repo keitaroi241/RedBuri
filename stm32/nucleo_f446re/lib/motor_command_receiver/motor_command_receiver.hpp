@@ -37,6 +37,7 @@ public:
     bool popBaseCommand(BaseMotorCommand& out);
     bool popArmCommand(ArmMotorCommand& out);
     bool popReceivedLine(char* out, size_t out_size);
+    bool popParseError(char* out, size_t out_size);
 
 private:
     void parseLine(const char* line);
@@ -52,5 +53,7 @@ private:
     char latest_line_[MAX_LINE_LENGTH + 1]{};
     uint16_t latest_line_length_ = 0;
     bool has_line_ = false;
+    char latest_parse_error_[MAX_LINE_LENGTH + 1]{};
+    bool has_parse_error_ = false;
     uint8_t rx_byte_ = 0;
 };

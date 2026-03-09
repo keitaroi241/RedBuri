@@ -1,8 +1,58 @@
 #include "motor_command_receiver.hpp"
 #include "usart.h"
 #include <cstddef>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
+
+namespace
+{
+bool parseCsvFloats(const char* line, char head, float* out_values, size_t value_count)
+{
+    if(line == nullptr || out_values == nullptr || value_count == 0)
+    {
+        return false;
+    }
+
+    if(line[0] != head || line[1] != ',')
+    {
+        return false;
+    }
+
+    const char* cursor = line + 2;
+
+    for(size_t i = 0; i < value_count; i++)
+    {
+        char* end_ptr = nullptr;
+        const float value = std::strtof(cursor, &end_ptr);
+
+        if(end_ptr == cursor)
+        {
+            return false;
+        }
+
+        out_values[i] = value;
+
+        if(i + 1 < value_count)
+        {
+            if(*end_ptr != ',')
+            {
+                return false;
+            }
+            cursor = end_ptr + 1;
+        }
+        else
+        {
+            if(*end_ptr != '\0')
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+}  // namespace
 
 void MotorCommandReceiver::reset()
 {
@@ -13,6 +63,8 @@ void MotorCommandReceiver::reset()
     latest_line_[0] = '\0';
     latest_line_length_ = 0;
     has_line_ = false;
+    latest_parse_error_[0] = '\0';
+    has_parse_error_ = false;
 }
 
 void MotorCommandReceiver::pushByte(uint8_t byte)
@@ -112,6 +164,24 @@ bool MotorCommandReceiver::popReceivedLine(char* out, size_t out_size)
     return true;
 }
 
+bool MotorCommandReceiver::popParseError(char* out, size_t out_size)
+{
+    if(!has_parse_error_ || out == nullptr || out_size == 0)
+    {
+        return false;
+    }
+
+    size_t len = std::strlen(latest_parse_error_);
+    if(len >= out_size)
+    {
+        len = out_size - 1;
+    }
+    std::memcpy(out, latest_parse_error_, len);
+    out[len] = '\0';
+    has_parse_error_ = false;
+    return true;
+}
+
 void MotorCommandReceiver::parseLine(const char* line)
 {
     if(line == nullptr || line[0] == '\0')
@@ -122,18 +192,25 @@ void MotorCommandReceiver::parseLine(const char* line)
     if(line[0] == 'B' && line[1] == ',')
     {
         BaseMotorCommand parsed{};
-        int count = std::sscanf(
-            line,
-            "B,%f,%f,%f,%f",
-            &parsed.motor_f_rpm,
-            &parsed.motor_r_rpm,
-            &parsed.motor_l_rpm,
-            &parsed.steer_deg);
+        float values[4]{};
 
-        if(count == 4)
+        if(parseCsvFloats(line, 'B', values, 4))
         {
+            parsed.motor_f_rpm = values[0];
+            parsed.motor_r_rpm = values[1];
+            parsed.motor_l_rpm = values[2];
+            parsed.steer_deg = values[3];
             latest_base_ = parsed;
             has_base_ = true;
+        }
+        else
+        {
+            std::snprintf(
+                latest_parse_error_,
+                sizeof(latest_parse_error_),
+                "parse fail B line='%s'",
+                line);
+            has_parse_error_ = true;
         }
         return;
     }
@@ -141,21 +218,36 @@ void MotorCommandReceiver::parseLine(const char* line)
     if(line[0] == 'A' && line[1] == ',')
     {
         ArmMotorCommand parsed{};
-        int count = std::sscanf(
-            line,
-            "A,%f,%f,%f,%f,%f,%f,%f",
-            &parsed.joint_1_rpm,
-            &parsed.joint_2_rpm,
-            &parsed.joint_3_rpm,
-            &parsed.joint_4_rpm,
-            &parsed.joint_5_rpm,
-            &parsed.joint_6_rpm,
-            &parsed.gripper_rpm);
+        float values[7]{};
 
-        if(count == 7)
+        if(parseCsvFloats(line, 'A', values, 7))
         {
+            parsed.joint_1_rpm = values[0];
+            parsed.joint_2_rpm = values[1];
+            parsed.joint_3_rpm = values[2];
+            parsed.joint_4_rpm = values[3];
+            parsed.joint_5_rpm = values[4];
+            parsed.joint_6_rpm = values[5];
+            parsed.gripper_rpm = values[6];
             latest_arm_ = parsed;
             has_arm_ = true;
         }
+        else
+        {
+            std::snprintf(
+                latest_parse_error_,
+                sizeof(latest_parse_error_),
+                "parse fail A line='%s'",
+                line);
+            has_parse_error_ = true;
+        }
+        return;
     }
+
+    std::snprintf(
+        latest_parse_error_,
+        sizeof(latest_parse_error_),
+        "unknown head line='%s'",
+        line);
+    has_parse_error_ = true;
 }

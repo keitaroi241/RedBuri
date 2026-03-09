@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sstream>
 #include <string>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -85,7 +86,7 @@ private:
 
   void openSerial()
   {
-    serial_fd_ = ::open(port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    serial_fd_ = ::open(port_.c_str(), O_RDWR | O_NOCTTY);
     if (serial_fd_ < 0) {
       RCLCPP_ERROR(get_logger(), "open(%s) failed: %s", port_.c_str(), std::strerror(errno));
       return;
@@ -117,6 +118,16 @@ private:
       serial_fd_ = -1;
       return;
     }
+
+    int modem_bits = 0;
+    if (::ioctl(serial_fd_, TIOCMGET, &modem_bits) == 0) {
+      modem_bits |= (TIOCM_DTR | TIOCM_RTS);
+      if (::ioctl(serial_fd_, TIOCMSET, &modem_bits) != 0) {
+        RCLCPP_WARN(get_logger(), "ioctl(TIOCMSET) failed: %s", std::strerror(errno));
+      }
+    } else {
+      RCLCPP_WARN(get_logger(), "ioctl(TIOCMGET) failed: %s", std::strerror(errno));
+    }
   }
 
   void sendLine(const std::string & line)
@@ -124,10 +135,28 @@ private:
     if (serial_fd_ < 0) {
       return;
     }
-    const ssize_t ret = ::write(serial_fd_, line.data(), line.size());
-    if (ret < 0) {
-      RCLCPP_ERROR_THROTTLE(
-        get_logger(), *get_clock(), 2000, "serial write failed: %s", std::strerror(errno));
+
+    size_t total = 0;
+    while (total < line.size()) {
+      const ssize_t ret = ::write(serial_fd_, line.data() + total, line.size() - total);
+      if (ret < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        RCLCPP_ERROR_THROTTLE(
+          get_logger(), *get_clock(), 2000, "serial write failed: %s", std::strerror(errno));
+        ::close(serial_fd_);
+        serial_fd_ = -1;
+        return;
+      }
+      if (ret == 0) {
+        RCLCPP_ERROR_THROTTLE(
+          get_logger(), *get_clock(), 2000, "serial write returned 0 bytes");
+        ::close(serial_fd_);
+        serial_fd_ = -1;
+        return;
+      }
+      total += static_cast<size_t>(ret);
     }
   }
 
