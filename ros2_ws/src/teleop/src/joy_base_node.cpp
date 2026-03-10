@@ -119,7 +119,6 @@ private:
     else if(drive != 0.0 || steer != 0.0)
     {
       base.target_steer_deg = max_steer_deg_ * steer;
-      double steer_rad = std::fabs(base.target_steer_deg) * M_PI / 180.0; 
       base.motor_rpm = max_motor_rpm_ * drive;
     }
 
