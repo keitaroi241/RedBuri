@@ -192,14 +192,12 @@ void MotorCommandReceiver::parseLine(const char* line)
     if(line[0] == 'B' && line[1] == ',')
     {
         BaseMotorCommand parsed{};
-        float values[4]{};
+        float values[2]{};
 
-        if(parseCsvFloats(line, 'B', values, 4))
+        if(parseCsvFloats(line, 'B', values, 2))
         {
-            parsed.motor_f_rpm = values[0];
-            parsed.motor_r_rpm = values[1];
-            parsed.motor_l_rpm = values[2];
-            parsed.steer_deg = values[3];
+            parsed.motor_rpm = values[0];
+            parsed.target_steer_deg = values[1];
             latest_base_ = parsed;
             has_base_ = true;
         }

@@ -5,10 +5,8 @@
 
 struct BaseMotorCommand
 {
-    float motor_f_rpm = 0.0f;
-    float motor_r_rpm = 0.0f;
-    float motor_l_rpm = 0.0f;
-    float steer_deg = 0.0f;
+    float motor_rpm = 0.0f;
+    float target_steer_deg = 0.0f;
 };
 
 struct ArmMotorCommand
