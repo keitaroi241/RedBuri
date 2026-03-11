@@ -90,6 +90,27 @@ bool STS3215::requestPositionIT()
     return true;
 }
 
+bool STS3215::captureZeroFromLast(){
+    if(!last_pos_valid_) return false;
+    zeroPos_ = static_cast<uint16_t>(last_pos_);
+    zeroCaptured_ = true;
+    lastZeroDeg_ = 0.0f;
+    lastZeroDegValid_ = true;
+    clampTargetDeg_ = 0.0f;
+    clampTargetInited_ = false;
+    return true;
+}
+
+float STS3215::getAngleFromZeroDegFromLast() const{
+    if(!zeroCaptured_ || !last_pos_valid_) return -1.0f;
+    int32_t rel = zeroDirReversed_
+        ? static_cast<int32_t>(zeroPos_) - static_cast<int32_t>(last_pos_)
+        : static_cast<int32_t>(last_pos_) - static_cast<int32_t>(zeroPos_);
+    rel %= 4096;
+    if(rel < 0) rel += 4096;
+    return ticksToDeg(static_cast<uint16_t>(rel));
+}
+
 void STS3215::onUartTxCplt(UART_HandleTypeDef* huart)
 {
     for (size_t i = 0; i < s_stsInstanceCount; ++i) {

@@ -12,6 +12,7 @@ public:
     float getFrontRpm() const;
     float getRearRightRpm() const;
     float getRearLeftRpm() const;
+    float getTargetSteerDeg() const;
 
 private:
     static constexpr float WHEELBASE_M = 0.93053f;
