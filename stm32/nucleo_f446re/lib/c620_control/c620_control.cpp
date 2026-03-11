@@ -97,8 +97,6 @@ void C620Control::update()
         const float current_cmd = KP_SPEED * error;
         can.setCurrent(id, current_cmd);
     }
-
-    can.sendCurrents();
 }
 
 void C620Control::rotate(uint8_t motor_id, float delta_deg)
