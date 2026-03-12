@@ -77,6 +77,8 @@ public:
     bool hasLastPosition() const { return last_pos_valid_; }
     int16_t getLastPosition() const { return last_pos_; }
     float getLastAngleDeg() const { return last_pos_valid_ ? ticksToDeg(static_cast<uint16_t>(last_pos_)) : -1.0f; }
+    bool captureZeroFromLast();
+    float getAngleFromZeroDegFromLast() const;
     static void onUartTxCplt(UART_HandleTypeDef* huart);
     static void onUartRxCplt(UART_HandleTypeDef* huart);
     static void onUartError(UART_HandleTypeDef* huart);

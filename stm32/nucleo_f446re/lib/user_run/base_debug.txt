@@ -1,0 +1,102 @@
+#include "c620_can.hpp"
+#include "c620_control.hpp"
+#include "gpio.h"
+#include "main.h"
+#include "tim.h"
+#include "usart.h"
+#include "sts3215.hpp"
+#include "base_motor_receiver.hpp"
+#include <cstdio>
+#include <cstdint>
+
+C620CAN c620_can;
+C620Control c620_control(c620_can);
+STS3215 servo1(&huart1, 1, GPIOA, GPIO_PIN_5);
+BaseMotorReceiver base;
+extern volatile uint8_t g_tim6_tick;
+static bool zero_inited = false;
+static float zero_deg = 0.0f;
+
+namespace run
+{
+    void setup()
+    {
+        c620_can.init();
+        HAL_TIM_Base_Start_IT(&htim6);
+        base.init();
+        HAL_Delay(1000);
+    }
+
+    void loop()
+    {
+        float current_steer_deg{};
+
+        if(servo1.hasLastPosition())
+        {
+            const float raw_deg = servo1.getLastAngleDeg(); // 絶対角(0..360)
+
+            if(!zero_inited)
+            {
+                zero_deg = raw_deg;   // 初期角を保存
+                zero_inited = true;
+            } 
+            current_steer_deg = raw_deg - zero_deg; // 相対角
+        }
+
+        if(g_tim6_tick != 0)
+        {
+            g_tim6_tick = 0;
+            c620_control.update();
+        }
+
+        const uint32_t now_ms = HAL_GetTick();
+        static uint32_t next_req_ms = 0;
+        if(now_ms >= next_req_ms && !servo1.isUartBusy()){
+            servo1.requestPositionIT();
+            next_req_ms = now_ms + 100; 
+        }
+        base.setCurrentSteerDeg(current_steer_deg);
+        base.computeMotorRpm();
+
+        float front_rpm = base.getFrontRpm();
+        float rear_right_rpm = base.getRearRightRpm();
+        float rear_left_rpm = base.getRearLeftRpm();
+        float target_steer_deg = base.getTargetSteerDeg();
+
+        c620_control.setSpeedTarget(1, front_rpm);
+        c620_control.setSpeedTarget(2, -rear_right_rpm);
+        c620_control.setSpeedTarget(3, rear_left_rpm);
+        c620_can.sendCurrents();
+        
+        static uint32_t next_cmd_ms = 0;
+        if(now_ms >= next_cmd_ms && !servo1.isUartBusy())
+        {
+            float target_deg_zero = zero_deg + target_steer_deg; // 相対→絶対へ変換
+
+            if(target_deg_zero < 0.0f)   target_deg_zero= 0.0f;
+            if(target_deg_zero > 360.0f) target_deg_zero = 360.0f;
+
+            servo1.setAngleDeg(target_deg_zero, 0, 500);
+            next_cmd_ms = now_ms + 20;   // 50Hz
+        }
+
+        printf("DBG cur=%.2f tgt=%.2f f=%.2f rr=%.2f rl=%.2f\n",
+            current_steer_deg,
+            target_steer_deg,
+            front_rpm,
+            rear_right_rpm,
+            rear_left_rpm);
+
+        HAL_Delay(1);
+    }
+}
+
+extern "C" void setup_c()
+{
+    run::setup();
+}
+
+extern "C" void loop_c()
+{
+    run::loop();
+}
