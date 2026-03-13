@@ -90,26 +90,30 @@ void C620CAN::updateMotorStatus()
     }
 }
 
-uint16_t C620CAN::getAngleRaw(uint8_t motor_id) const
+bool C620CAN::getAngleRaw(uint8_t motor_id, uint16_t& angle_raw) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1.0f;
-    return motors_[motor_id - 1].angle_raw;
+    if(motor_id < 1 || motor_id > 8) return false;
+    angle_raw = motors_[motor_id - 1].angle_raw;
+    return true;
 }
 
-int16_t C620CAN::getSpeedRpm(uint8_t motor_id) const
+bool C620CAN::getSpeedRpm(uint8_t motor_id, int16_t& speed_rpm) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1;
-    return motors_[motor_id - 1].speed_rpm;
+    if(motor_id < 1 || motor_id > 8) return false;
+    speed_rpm = motors_[motor_id - 1].speed_rpm;
+    return true;
 }
 
-float C620CAN::getCurrentAmp(uint8_t motor_id) const
+bool C620CAN::getCurrentAmp(uint8_t motor_id, float& current_amp) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1.0f;
-    return motors_[motor_id - 1].current_amp;
+    if(motor_id < 1 || motor_id > 8) return false;
+    current_amp = motors_[motor_id - 1].current_amp;
+    return true;
 }
 
-int8_t C620CAN::getTempDegC(uint8_t motor_id) const
+bool C620CAN::getTempDegC(uint8_t motor_id, uint8_t& temp_degC) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1;
-    return motors_[motor_id - 1].temp_degC;
+    if(motor_id < 1 || motor_id > 8) return false;
+    temp_degC = motors_[motor_id - 1].temp_degC;
+    return true;
 }
