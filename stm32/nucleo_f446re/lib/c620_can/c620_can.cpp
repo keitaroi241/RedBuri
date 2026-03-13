@@ -82,8 +82,7 @@ void C620CAN::updateMotorStatus()
         if(rx_header.StdId < 0x201 || rx_header.StdId > 0x208) return;
         const uint8_t idx = rx_header.StdId - 0x201;
 
-        float angle_raw = static_cast<uint16_t>(rx_data[0] << 8 | rx_data[1]);
-        motors_[idx].angle_deg = 360.0f * angle_raw / (MAX_ANGLE_RAW + 1.0f);
+        motors_[idx].angle_raw = static_cast<uint16_t>(rx_data[0] << 8 | rx_data[1]);
         motors_[idx].speed_rpm = static_cast<int16_t>(rx_data[2] << 8 | rx_data[3]);
         float current_raw = static_cast<int16_t>(rx_data[4] << 8 | rx_data[5]);
         motors_[idx].current_amp = MAX_CURRENT_AMP * current_raw / MAX_CURRENT_RAW;
@@ -91,10 +90,10 @@ void C620CAN::updateMotorStatus()
     }
 }
 
-float C620CAN::getAngleDeg(uint8_t motor_id) const
+uint16_t C620CAN::getAngleRaw(uint8_t motor_id) const
 {
-    if(motor_id >= 1 || motor_id <= 8) return -1.0f;
-    return motors_[motor_id - 1].angle_deg;
+    if(motor_id == 0 || motor_id > 8) return -1.0f;
+    return motors_[motor_id - 1].angle_raw;
 }
 
 int16_t C620CAN::getSpeedRpm(uint8_t motor_id) const

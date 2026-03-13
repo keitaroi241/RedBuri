@@ -11,7 +11,7 @@ public:
     void setCurrent(uint8_t motor_id, float current_amp);
     void sendCurrents();
     void updateMotorStatus();
-    float getAngleDeg(uint8_t motor_id) const;
+    uint16_t getAngleRaw(uint8_t motor_id) const;
     int16_t getSpeedRpm(uint8_t motor_id) const;
     float getCurrentAmp(uint8_t motor_id) const;
     int8_t getTempDegC(uint8_t motor_id) const;
@@ -25,7 +25,7 @@ private:
     struct MotorState
     {
         int16_t target_current_raw{};
-        float angle_deg{};
+        uint16_t angle_raw{};
         int16_t speed_rpm{};
         float current_amp{};
         int8_t temp_degC{};
