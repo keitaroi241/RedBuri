@@ -2,6 +2,8 @@
 #include "can.h"
 #include <cmath>
 
+C620CAN::C620CAN(CAN_HandleTypeDef* hcan) : hcan_(hcan) {}
+
 void C620CAN::init()
 {
     // C620のCAN_ID: 0x201~0x208
@@ -17,14 +19,13 @@ void C620CAN::init()
     filter.SlaveStartFilterBank = 14;
     filter.FilterActivation     = ENABLE;
 
-    HAL_CAN_ConfigFilter(&hcan1, &filter);
-    HAL_CAN_Start(&hcan1);
-    HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+    HAL_CAN_ConfigFilter(hcan_, &filter);
+    HAL_CAN_Start(hcan_);
+    HAL_CAN_ActivateNotification(hcan_, CAN_IT_RX_FIFO0_MSG_PENDING);
 }
 
 void C620CAN::setCurrent(uint8_t motor_id, float target_current_amp) 
 {
-    if(LIMIT_CURRENT_AMP > MAX_CURRENT_AMP) return;
     if(motor_id == 0 || motor_id > 8) return;
     if(std::fabs(target_current_amp) >= LIMIT_CURRENT_AMP)
     {
@@ -32,82 +33,87 @@ void C620CAN::setCurrent(uint8_t motor_id, float target_current_amp)
     }
 
     float current_raw = (target_current_amp / MAX_CURRENT_AMP) * MAX_CURRENT_RAW;
-    target_currents_raw[motor_id - 1] = static_cast<int16_t>(current_raw);
+    motors_[motor_id - 1].target_current_raw = static_cast<int16_t>(current_raw);
 }
 
 void C620CAN::sendCurrents()
 {
-    CAN_TxHeaderTypeDef tx_deader;
+    CAN_TxHeaderTypeDef tx_header;
     uint32_t tx_mailbox;
     uint8_t tx_data[8];
 
-    if(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) >= 2)
+    if(HAL_CAN_GetTxMailboxesFreeLevel(hcan_) >= 2)
     {
         // モーターID: 1~4
-        tx_deader.StdId = 0x200;
-        tx_deader.IDE = CAN_ID_STD;
-        tx_deader.RTR = CAN_RTR_DATA;
-        tx_deader.DLC = 8;
-        tx_deader.TransmitGlobalTime = DISABLE;
+        tx_header.StdId = 0x200;
+        tx_header.IDE = CAN_ID_STD;
+        tx_header.RTR = CAN_RTR_DATA;
+        tx_header.DLC = 8;
+        tx_header.TransmitGlobalTime = DISABLE;
         for (int i = 0; i < 4; i++)
         {
-            int16_t current = target_currents_raw[i];
+            int16_t current = motors_[i].target_current_raw;
             tx_data[2*i] = (current >> 8) & 0xFF;
             tx_data[2*i + 1] = current & 0xFF;
         }
 
-        HAL_CAN_AddTxMessage(&hcan1, &tx_deader, tx_data, &tx_mailbox);
+        HAL_CAN_AddTxMessage(hcan_, &tx_header, tx_data, &tx_mailbox);
 
         // モーターID: 5~8
-        tx_deader.StdId = 0x1FF;
+        tx_header.StdId = 0x1FF;
         for (int i = 0; i < 4; i++)
         {
-            int16_t current = target_currents_raw[i + 4];
+            int16_t current = motors_[i + 4].target_current_raw;
             tx_data[2*i] = (current >> 8) & 0xFF;
             tx_data[2*i + 1] = current & 0xFF;
         }
 
-        HAL_CAN_AddTxMessage(&hcan1, &tx_deader, tx_data, &tx_mailbox);
+        HAL_CAN_AddTxMessage(hcan_, &tx_header, tx_data, &tx_mailbox);
     }
 }
 
-void C620CAN::readMotorStatus() 
+void C620CAN::updateMotorStatus() 
 {
     CAN_RxHeaderTypeDef rx_header;
     uint8_t rx_data[8];
 
-    if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, rx_data) == HAL_OK)
+    if(HAL_CAN_GetRxMessage(hcan_, CAN_RX_FIFO0, &rx_header, rx_data) == HAL_OK)
     {
         if(rx_header.StdId < 0x201 || rx_header.StdId > 0x208) return;
         const uint8_t idx = rx_header.StdId - 0x201;
 
-        angles_raw[idx] = static_cast<uint16_t>(rx_data[0] << 8 | rx_data[1]);
-        speeds_rpm[idx] = static_cast<int16_t>(rx_data[2] << 8 | rx_data[3]);
-        currents_raw[idx] = static_cast<int16_t>(rx_data[4] << 8 | rx_data[5]);
-        temps_degc[idx] = rx_data[6];
+        motors_[idx].angle_raw = static_cast<uint16_t>(rx_data[0] << 8 | rx_data[1]);
+        motors_[idx].speed_rpm = static_cast<int16_t>(rx_data[2] << 8 | rx_data[3]);
+        float current_raw = static_cast<int16_t>(rx_data[4] << 8 | rx_data[5]);
+        motors_[idx].current_amp = MAX_CURRENT_AMP * current_raw / MAX_CURRENT_RAW;
+        motors_[idx].temp_degC = rx_data[6];
     }
 }
 
-float C620CAN::getAngle(uint8_t motor_id)
+bool C620CAN::getAngleRaw(uint8_t motor_id, uint16_t& angle_raw) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1.0f;
-    return 360.0f * angles_raw[motor_id - 1] / MAX_ANGLE_RAW;
+    if(motor_id < 1 || motor_id > 8) return false;
+    angle_raw = motors_[motor_id - 1].angle_raw;
+    return true;
 }
 
-float C620CAN::getSpeed(uint8_t motor_id)
+bool C620CAN::getSpeedRpm(uint8_t motor_id, int16_t& speed_rpm) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1.0f;
-    return speeds_rpm[motor_id - 1];
+    if(motor_id < 1 || motor_id > 8) return false;
+    speed_rpm = motors_[motor_id - 1].speed_rpm;
+    return true;
 }
 
-float C620CAN::getCurrent(uint8_t motor_id)
+bool C620CAN::getCurrentAmp(uint8_t motor_id, float& current_amp) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1.0f;
-    return MAX_CURRENT_AMP * currents_raw[motor_id - 1] / MAX_CURRENT_RAW;
+    if(motor_id < 1 || motor_id > 8) return false;
+    current_amp = motors_[motor_id - 1].current_amp;
+    return true;
 }
 
-float C620CAN::getTemp(uint8_t motor_id)
+bool C620CAN::getTempDegC(uint8_t motor_id, uint8_t& temp_degC) const
 {
-    if(motor_id == 0 || motor_id > 8) return -1.0f;
-    return temps_degc[motor_id - 1];
+    if(motor_id < 1 || motor_id > 8) return false;
+    temp_degC = motors_[motor_id - 1].temp_degC;
+    return true;
 }
