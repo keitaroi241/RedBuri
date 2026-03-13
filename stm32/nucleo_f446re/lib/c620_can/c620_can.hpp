@@ -20,7 +20,6 @@ private:
     static constexpr float LIMIT_CURRENT_AMP = 6.0f;    // ユーザー定義の電流制限[A]
     static constexpr float MAX_CURRENT_AMP = 20.0f;     // 最大電流[A]
     static constexpr uint16_t MAX_CURRENT_RAW = 16384;   // 最大電流(16bit)
-    static constexpr uint16_t MAX_ANGLE_RAW = 8191;     // 最大角度(16bit)
 
     struct MotorState
     {
