@@ -10,3 +10,6 @@ joy_arm_cartesian_node:
     max_linear_x: 0.1
     max_linear_y: 0.1
     max_linear_z: 0.1
+    servo_command_frame: tool0
+    target_pose_frame: base_mount
+    target_pose_topic: /target_pose
