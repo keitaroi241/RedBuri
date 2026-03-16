@@ -5,6 +5,7 @@
 #include "sts3215.hpp"
 #include "step_axis.hpp"
 #include "motor_command_receiver.hpp"
+#include "uart_sender.hpp"
 
 C620CAN c620_can(&hcan1);
 C620Control c620_control(c620_can, htim6);
@@ -15,6 +16,7 @@ StepAxis axis2{&htim3, TIM_CHANNEL_1, GPIOA, GPIO_PIN_4, true, 1.8f, 8U, 15.0f};
 StepAxis axis3{&htim4, TIM_CHANNEL_1, GPIOB, GPIO_PIN_4, true, 1.8f, 8U, 15.0f}; // PUL=PB6,  DIR=PB4
 StepAxis* const axes[] = {&axis1, &axis2, &axis3};
 MotorCommandReceiver cmd(huart2);
+UartSender uart_sender(huart2, htim7);
 
 constexpr size_t kAxisCount = sizeof(axes) / sizeof(axes[0]);
 constexpr uint32_t kStepHzPerOutputRpm = 400U;
@@ -63,6 +65,7 @@ namespace run
         c620_can.init();
         c620_control.init();
         cmd.init();
+        uart_sender.init();
         axis1.resetCurrentDeg(0.0f);
         axis2.resetCurrentDeg(0.0f);
         axis3.resetCurrentDeg(0.0f);
@@ -96,8 +99,8 @@ namespace run
         float joint_4_rad = joint_4_deg * kPi / 180.0f;
         float joint_5_rad = joint_5_deg * kPi / 180.0f;
         float joint_6_rad = joint_6_deg * kPi / 180.0f;
-        
-        printf("J,%f,%f,%f,%f,%f,%f,%f\n",
+
+        uart_sender.sendJointDeg(
             joint_1_rad,
             joint_2_rad,
             joint_3_rad,
