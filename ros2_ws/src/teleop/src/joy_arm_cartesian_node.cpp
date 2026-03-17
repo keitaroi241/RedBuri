@@ -4,7 +4,6 @@
 #include <string>
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/joint_state.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/int8.hpp"
@@ -43,12 +42,12 @@ public:
         control_mode_ = msg->data;
       }
     );
-    joint_state_sub_ = create_subscription<sensor_msgs::msg::JointState>(
-      "/joint_states",
+    gripper_state_sub_ = create_subscription<std_msgs::msg::Float32>(
+      "/gripper_state",
       10,
-      [this](sensor_msgs::msg::JointState::SharedPtr msg)
+      [this](std_msgs::msg::Float32::SharedPtr msg)
       {
-        jointStateCallback(msg);
+        gripperStateCallback(msg);
       }
     );
     twist_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>("/servo_node/delta_twist_cmds", 10);
@@ -59,7 +58,6 @@ public:
 private:
   static constexpr double DEG_TO_RAD = 3.14159265358979323846 / 180.0;
   static constexpr const char * SERVO_COMMAND_FRAME = "link_6";
-  static constexpr const char * GRIPPER_STATE_NAME = "gripper_state";
   int axis_x_{4};
   int axis_y_{0};
   int axis_z_{1};
@@ -82,7 +80,7 @@ private:
   bool has_gripper_position_{false};
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr mode_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr gripper_state_sub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist_pub_;
   rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr joint_6_pub_;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr gripper_pub_;
@@ -105,18 +103,10 @@ private:
     return normalized * max_linear;
   }
 
-  void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
+  void gripperStateCallback(const std_msgs::msg::Float32::SharedPtr msg)
   {
-    const size_t num_joints = std::min(msg->name.size(), msg->position.size());
-    for (size_t i = 0; i < num_joints; ++i)
-    {
-      if (msg->name[i] == GRIPPER_STATE_NAME)
-      {
-        current_gripper_position_ = msg->position[i];
-        has_gripper_position_ = true;
-        return;
-      }
-    }
+    current_gripper_position_ = static_cast<double>(msg->data);
+    has_gripper_position_ = true;
   }
 
   double applyGripperLimit(double gripper_command)

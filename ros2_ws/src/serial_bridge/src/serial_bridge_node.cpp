@@ -15,6 +15,7 @@
 #include "redburi_msgs/msg/arm_command.hpp"
 #include "redburi_msgs/msg/base_command.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/string.hpp"
 
 class SerialBridgeNode : public rclcpp::Node
@@ -55,6 +56,7 @@ public:
       });
 
     joint_state_pub_ = create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
+    gripper_state_pub_ = create_publisher<std_msgs::msg::Float32>("/gripper_state", 10);
     raw_rx_line_pub_ = create_publisher<std_msgs::msg::String>("/stm32_rx_line", 10);
 
     openSerial();
@@ -93,6 +95,7 @@ private:
   rclcpp::Subscription<redburi_msgs::msg::BaseCommand>::SharedPtr base_sub_;
   rclcpp::Subscription<redburi_msgs::msg::ArmCommand>::SharedPtr arm_sub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr gripper_state_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr raw_rx_line_pub_;
   rclcpp::TimerBase::SharedPtr tx_timer_;
   std::string rx_line_buffer_{};
@@ -104,8 +107,7 @@ private:
     "joint_3",
     "joint_4",
     "joint_5",
-    "joint_6",
-    "gripper_state"};
+    "joint_6"};
 
   static float safeFloat(float v)
   {
@@ -386,6 +388,9 @@ private:
         values.resize(kJointStateCount);
       }
       publishJointStates(values);
+      if (values.size() == kJointStateCount) {
+        publishGripperState(values[kArmJointCount]);
+      }
       return;
     }
 
@@ -398,14 +403,22 @@ private:
     constexpr double kJointScale = 1000.0;
     sensor_msgs::msg::JointState msg{};
     msg.header.stamp = now();
-    const size_t joint_count = std::min(values.size(), joint_names_.size());
+    const size_t joint_count = std::min(kArmJointCount, values.size());
     msg.name.assign(joint_names_.begin(), joint_names_.begin() + joint_count);
-    msg.position.reserve(values.size());
+    msg.position.reserve(joint_count);
     for (size_t i = 0; i < joint_count; ++i) {
       const float value = values[i];
       msg.position.push_back(static_cast<double>(value) / kJointScale);
     }
     joint_state_pub_->publish(msg);
+  }
+
+  void publishGripperState(float value)
+  {
+    constexpr float kJointScale = 1000.0f;
+    std_msgs::msg::Float32 msg{};
+    msg.data = value / kJointScale;
+    gripper_state_pub_->publish(msg);
   }
 
 };

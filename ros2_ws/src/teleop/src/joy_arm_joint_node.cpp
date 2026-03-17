@@ -10,6 +10,7 @@
 #include "redburi_msgs/msg/arm_command.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "sensor_msgs/msg/joy.hpp"
+#include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/u_int8.hpp"
 #include "urdf/model.h"
 
@@ -50,6 +51,14 @@ public:
         joint_state_callback(msg);
       }
     );
+    gripper_state_sub_ = create_subscription<std_msgs::msg::Float32>(
+      "/gripper_state",
+      10,
+      [this](std_msgs::msg::Float32::SharedPtr msg)
+      {
+        gripper_state_callback(msg);
+      }
+    );
     arm_pub_ = create_publisher<redburi_msgs::msg::ArmCommand>("/arm_cmd", 10);
   }
 
@@ -57,7 +66,6 @@ private:
   static constexpr double DEG_TO_RAD = 3.14159265358979323846 / 180.0;
   static constexpr std::array<const char *, 6> JOINT_NAMES{
     "joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6"};
-  static constexpr const char * GRIPPER_STATE_NAME = "gripper_state";
   const int next_button_{5};
   const int prev_button_{4};
   const int axis_forward_{5};
@@ -79,6 +87,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr mode_sub_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr gripper_state_sub_;
   rclcpp::Publisher<redburi_msgs::msg::ArmCommand>::SharedPtr arm_pub_;
   uint8_t control_mode_{0};
 
@@ -135,12 +144,6 @@ private:
   {
     const size_t num_joints = std::min(msg->name.size(), msg->position.size());
     for (size_t i = 0; i < num_joints; ++i) {
-      if (msg->name[i] == GRIPPER_STATE_NAME) {
-        current_gripper_position_ = msg->position[i];
-        has_gripper_position_ = true;
-        continue;
-      }
-
       for (size_t joint_idx = 0; joint_idx < JOINT_NAMES.size(); ++joint_idx) {
         if (msg->name[i] == JOINT_NAMES[joint_idx]) {
           current_joint_positions_[joint_idx] = msg->position[i];
@@ -149,6 +152,12 @@ private:
         }
       }
     }
+  }
+
+  void gripper_state_callback(std_msgs::msg::Float32::SharedPtr msg)
+  {
+    current_gripper_position_ = static_cast<double>(msg->data);
+    has_gripper_position_ = true;
   }
 
   double apply_joint_limit(double motor_rpm)
