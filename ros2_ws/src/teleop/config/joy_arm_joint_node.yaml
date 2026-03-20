@@ -1,8 +1,8 @@
 # Controller: DualShock 4
 joy_arm_joint_node:
   ros__parameters:
-    deadzone_drive: 0.1
+    deadzone_drive: 0.05
     drive_input_max: 0.9
-    max_motor_rpm: 5.0
-    gripper_lower_deg: 0.0
-    gripper_upper_deg: 110.0
+    max_motor_rpm: 15.0
+    gripper_lower_deg: -360.0
+    gripper_upper_deg: 360.0

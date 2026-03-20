@@ -65,6 +65,7 @@ void STS3215Scheduler::setCommandIntervalTicks(uint32_t ticks)
 void STS3215Scheduler::setTargetDeg(float target_deg)
 {
     use_clamped_ = false;
+    use_signed_ = false;
     if (target_deg < 0.0f) target_deg = 0.0f;
     if (target_deg > 360.0f) target_deg = 360.0f;
     target_deg_ = target_deg;
@@ -73,16 +74,17 @@ void STS3215Scheduler::setTargetDeg(float target_deg)
 void STS3215Scheduler::setTargetDegSigned(float target_deg)
 {
     use_clamped_ = false;
+    use_signed_ = true;
     float deg = target_deg;
     if (deg < -180.0f) deg = -180.0f;
     if (deg > 180.0f) deg = 180.0f;
-    if (deg < 0.0f) deg += 360.0f;
-    setTargetDeg(deg);
+    target_deg_ = deg;
 }
 
 void STS3215Scheduler::setTargetDegClamped(float target_deg)
 {
     use_clamped_ = true;
+    use_signed_ = false;
     if (target_deg < 0.0f) target_deg = 0.0f;
     if (target_deg > 360.0f) target_deg = 360.0f;
     target_deg_ = target_deg;
@@ -90,11 +92,7 @@ void STS3215Scheduler::setTargetDegClamped(float target_deg)
 
 void STS3215Scheduler::setTargetDegSignedClamped(float target_deg)
 {
-    float deg = target_deg;
-    if (deg < -180.0f) deg = -180.0f;
-    if (deg > 180.0f) deg = 180.0f;
-    if (deg < 0.0f) deg += 360.0f;
-    setTargetDegClamped(deg);
+    setTargetDegSigned(target_deg);
 }
 
 void STS3215Scheduler::update(uint32_t now_ms)
@@ -113,6 +111,10 @@ void STS3215Scheduler::update(uint32_t now_ms)
                 if (servo_.setClampedTargetDeg(target_deg_, 0, 500) == HAL_OK) {
                     cmd_flag_ = 0;
                 }
+            }
+        } else if (use_signed_) {
+            if (servo_.setAngleFromLastZeroDegSigned(target_deg_, 0, 500) == HAL_OK) {
+                cmd_flag_ = 0;
             }
         } else {
             if (servo_.setAngleFromLastZeroDeg(target_deg_, 0, 500) == HAL_OK) {
@@ -661,11 +663,27 @@ HAL_StatusTypeDef STS3215::setAngleFromZeroDegSigned(float target_deg,
                                                      uint16_t time_ms,
                                                      uint16_t speed)
 {
+    if (!zeroCaptured_) {
+        if (captureZero(40) != HAL_OK) return HAL_ERROR;
+    }
+
     float deg = target_deg;
     if (deg < -180.0f) deg = -180.0f;
     if (deg > 180.0f) deg = 180.0f;
-    if (deg < 0.0f) deg += 360.0f;
-    return setAngleFromZeroDeg(deg, time_ms, speed);
+
+    const int16_t rel_ticks = degToTicks(deg);
+    int32_t target = zeroDirReversed_
+        ? static_cast<int32_t>(zeroPos_) - static_cast<int32_t>(rel_ticks)
+        : static_cast<int32_t>(zeroPos_) + static_cast<int32_t>(rel_ticks);
+
+    if (target < 0) target = 0;
+    if (target > 4095) target = 4095;
+
+    const HAL_StatusTypeDef st = setPosition(static_cast<uint16_t>(target), time_ms, speed);
+    if (st == HAL_OK) {
+        startPos_ = static_cast<int16_t>(target);
+    }
+    return st;
 }
 
 HAL_StatusTypeDef STS3215::setClampedTargetDeg(float angle_deg, uint16_t time_ms, uint16_t speed) {

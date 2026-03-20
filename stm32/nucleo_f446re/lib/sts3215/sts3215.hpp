@@ -191,6 +191,7 @@ private:
     STS3215& servo_;
     float target_deg_{0.0f};
     bool use_clamped_{false};
+    bool use_signed_{false};
     float current_deg_{0.0f};
     bool current_valid_{false};
     uint32_t tick_{0};
